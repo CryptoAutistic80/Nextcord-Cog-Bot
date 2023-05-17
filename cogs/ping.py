@@ -9,18 +9,12 @@ class Ping(commands.Cog):
   async def on_ready(self):
     print("Ping is online and ready to pong!")
 
-  @commands.command()
-  async def ping(self, ctx):
+  @nextcord.slash_command(description="Ping the bot, go on waste his time")
+  async def ping(self, interaction : nextcord.Interaction):
     latency = round(self.bot.latency * 1000)
-    
-    # Create Embed object
-    embed = nextcord.Embed(
-        title="Pong!",
-        description=f"Pong MFER! Oh and server ping is: {latency}ms....I think 😂",
-        color=nextcord.Color.green()  # Or any color of your choice
-    )
-    await ctx.send(embed=embed)
 
+    await interaction.send(f"Pong MFER! Oh and server ping is: {latency}ms....I think 😂")
+    
 def setup(bot):
   bot.add_cog(Ping(bot))
 

@@ -32,6 +32,8 @@ discord_token = os.environ['DISCORD_TOKEN']
 @bot.event
 async def on_ready():
     print(f'We have logged in as {bot.user}')
+    await bot.discover_application_commands()  # Sync commands after the bot is ready
+    print("Commands synced")
 
 def load():
   for filename in os.listdir('./cogs'):
@@ -47,6 +49,8 @@ keep_alive.keep_alive()
 
 # Start your bot
 asyncio.run(main())
+
+
 
 
 
