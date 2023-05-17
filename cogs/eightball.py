@@ -16,8 +16,8 @@ class EightBall(commands.Cog):
     async def on_ready(self):
         print("8 Ball ready!")
 
-    @commands.command()
-    async def eightball(self, ctx, *, question: str):
+    @nextcord.slash_command(description="Ask the Magic 8-Ball a question")
+    async def eightball(self, interaction: nextcord.Interaction, question: str):
         response = random.choice(self.responses)
         
         embed = nextcord.Embed(
@@ -26,8 +26,9 @@ class EightBall(commands.Cog):
         )
         embed.add_field(name="Question", value=question, inline=False)
         embed.add_field(name="Answer", value=response, inline=False)
+        embed.set_thumbnail(url="https://ipfs.bluemove.io/uploads/aptos-gods-gen-0/images/0380.jpg")
         
-        await ctx.send(embed=embed)
+        await interaction.send(embed=embed)
 
 def setup(bot):
     bot.add_cog(EightBall(bot))
