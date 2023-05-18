@@ -14,7 +14,7 @@ class Ping(commands.Cog):
         latency = round(self.bot.latency * 1000)
 
         embed = nextcord.Embed(
-            title="The End is Nigh",
+            title="ALERT! Human wasting my time..",
             color=nextcord.Color.blue()
         )
         embed.add_field(name=" ", value=f"Pong MFER! oh and the latency is {latency}ms when I checked yesterday....", inline=False)
