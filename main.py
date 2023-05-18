@@ -22,6 +22,7 @@ import os
 import nextcord
 from nextcord.ext import commands
 import keep_alive
+from modules.maintenance import Maintenance
 
 intents = nextcord.Intents.all()
 intents.members = True
@@ -32,6 +33,8 @@ discord_token = os.environ['DISCORD_TOKEN']
 @bot.event
 async def on_ready():
     print(f'We have logged in as {bot.user}')
+
+    Maintenance()  # Start the maintenance task
 
 def load():
   for filename in os.listdir('./cogs'):

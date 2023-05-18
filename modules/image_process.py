@@ -26,7 +26,7 @@ def stitch_images(response):
     collage_image.paste(imgs[3], (imgs[0].width, imgs[0].height))
 
     # Save the collage image
-    file_to_send = "collage" + datetime.now().strftime('%Y-%m-%d-%H-%M-%S') + ".png"
+    file_to_send = "new_images/collage" + datetime.now().strftime('%Y-%m-%d-%H-%M-%S') + ".png"
     collage_image.save(file_to_send)
 
     return file_to_send, image_files
