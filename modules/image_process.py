@@ -1,6 +1,6 @@
-from PIL import Image
-from datetime import datetime
-import urllib.request
+from PIL import Image  # Importing the Image class from the PIL library
+from datetime import datetime  # Importing the datetime module for working with dates and times
+import urllib.request  # Importing the urllib.request module for working with URLs and making HTTP requests
 
 def stitch_images(response):
     # Array to store image files
@@ -30,4 +30,5 @@ def stitch_images(response):
     collage_image.save(file_to_send)
 
     return file_to_send, image_files
+
 

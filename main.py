@@ -17,39 +17,47 @@
 #      (Crypto Autistic)
 
 
-import asyncio
-import os
-import nextcord
-from nextcord.ext import commands
-import keep_alive
-from modules.maintenance import Maintenance
+import asyncio  # Importing the asyncio library for asynchronous programming
+import os  # Importing the os library for interacting with the operating system
+import nextcord  # Importing the nextcord library, a Python wrapper for the Discord API
+from nextcord.ext import commands  # Importing the commands extension from nextcord library
+import keep_alive  # Importing the keep_alive module for keeping the bot alive
+from modules.maintenance import Maintenance  # Importing the Maintenance class from the modules.maintenance module
 
+# Creating an instance of the Intents class with all intents enabled
 intents = nextcord.Intents.all()
 intents.members = True
+
+# Creating a new bot instance with a command prefix of '.' and the specified intents
 bot = commands.Bot(command_prefix=".", intents=intents, help_command=None)
 
+# Retrieving the Discord token from the environment variable
 discord_token = os.environ['DISCORD_TOKEN']
 
+# Event handler for when the bot is ready
 @bot.event
 async def on_ready():
     print(f'We have logged in as {bot.user}')
 
     Maintenance()  # Start the maintenance task
 
+# Function to load all the cogs (modules) from the 'cogs' directory
 def load():
-  for filename in os.listdir('./cogs'):
-    if filename.endswith('.py'):
-      bot.load_extension(f'cogs.{filename[:-3]}')
+    for filename in os.listdir('./cogs'):
+        if filename.endswith('.py'):
+            bot.load_extension(f'cogs.{filename[:-3]}')
 
+# Asynchronous function that serves as the entry point for the bot
 async def main():
-  load()
-  await bot.start(discord_token)
+    load()  # Load all the cogs
+    await bot.start(discord_token)  # Start the bot with the specified token
 
-# Call keep_alive before starting your bot
+# Call keep_alive function to keep the bot alive
 keep_alive.keep_alive()
 
-# Start your bot
+# Start the bot by running the main function using asyncio's run() method
 asyncio.run(main())
+
 
 
 
