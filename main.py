@@ -16,7 +16,7 @@
 #      James Walford 2023                                                 |___/
 #      (Crypto Autistic)
 
-
+import openai
 import asyncio  # Importing the asyncio library for asynchronous programming
 import os  # Importing the os library for interacting with the operating system
 import nextcord  # Importing the nextcord library, a Python wrapper for the Discord API
@@ -31,8 +31,10 @@ intents.members = True
 # Creating a new bot instance with a command prefix of '.' and the specified intents
 bot = commands.Bot(command_prefix=".", intents=intents, help_command=None)
 
-# Retrieving the Discord token from the environment variable
+# Retrieving environment vauiables token from the environment variable
 discord_token = os.environ['DISCORD_TOKEN']
+# Set the OpenAI API key as an environment variable
+openai.api_key = os.environ['Key_OpenAI']
 
 # Event handler for when the bot is ready
 @bot.event

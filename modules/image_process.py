@@ -1,3 +1,4 @@
+import os
 from PIL import Image  # Importing the Image class from the PIL library
 from datetime import datetime  # Importing the datetime module for working with dates and times
 import urllib.request  # Importing the urllib.request module for working with URLs and making HTTP requests
@@ -31,4 +32,42 @@ def stitch_images(response):
 
     return file_to_send, image_files
 
+def process_image(image_path):
+    img = Image.open(image_path)
+
+    # Crop the image to square if necessary
+    if img.width != img.height:
+        min_size = min(img.width, img.height)
+        img = img.crop(
+            (
+                (img.width - min_size) // 2,
+                (img.height - min_size) // 2,
+                (img.width + min_size) // 2,
+                (img.height + min_size) // 2
+            )
+        )
+
+    # Convert the image to PNG if necessary
+    if img.format != 'PNG':
+        image_path = image_path.rsplit('.', 1)[0] + '.png'
+        img.save(image_path)
+
+    # Resize the image if necessary
+    max_size = 1024
+    if max(img.width, img.height) > max_size:
+        if img.width > img.height:
+            new_width = max_size
+            new_height = int(max_size * img.height / img.width)
+        else:
+            new_height = max_size
+            new_width = int(max_size * img.width / img.height)
+        img = img.resize((new_width, new_height))
+        img.save(image_path)
+
+    # Reduce file size if necessary
+    while os.path.getsize(image_path) > 4 * 1024 * 1024:
+        img = Image.open(image_path)
+        img.save(image_path, optimize=True, quality=50)
+        
+    return image_path
 

@@ -1,12 +1,11 @@
 import nextcord  # Importing the nextcord library, a Python wrapper for the Discord API
 from nextcord.ext import commands  # Importing the commands extension from nextcord library
 from nextcord import SlashOption  # Importing the SlashOption class from nextcord
-
 import openai  # Importing the openai library for working with OpenAI's API
 import os  # Importing the os library for interacting with the operating system
 import aiohttp  # Importing the aiohttp library for making asynchronous HTTP requests
 import io  # Importing the io module for working with streams
-from modules.image_process import stitch_images  # Importing the stitch_images function from the modules.image_process module
+from modules.image_process import stitch_images, process_image  # Importing the stitch_images function from the modules.image_process module
 from modules.buttons import ImageButton, RegenerateButton, VaryButton, RegenerateVaryButton  # Importing custom button classes from the modules.buttons module
 
 # Defining a class named ImageView that extends nextcord.ui.View, representing a view for displaying images with buttons
@@ -127,6 +126,46 @@ class Paint(commands.Cog):
                         description="Choose the resolution for the image"
                     )):
         await self.generate_image(interaction, prompt, resolution)  # Generate and send the image based on the user prompt and resolution
+
+    @nextcord.slash_command(description="Upload an image and generate variations")
+    async def upload(self, interaction: nextcord.Interaction,
+                     resolution: str = SlashOption(
+                         choices={"256x256": "256x256", "512x512": "512x512", "1024x1024": "1024x1024"},
+                         description="Choose the resolution for the image"
+                     )):
+    
+        # Defer the interaction
+        await interaction.response.defer()
+    
+        # Fetch recent messages in the channel
+        messages = await interaction.channel.history(limit=50).flatten()
+    
+        # Find the last image uploaded by the user
+        image_url = None
+        for message in messages:
+            if message.author == interaction.user and message.attachments:
+                image_url = message.attachments[0].url
+                break
+    
+        if image_url:
+            # Download the image and save it locally
+            file_name = "new_images/uploaded_image.png"
+            async with aiohttp.ClientSession() as session:
+                async with session.get(image_url) as resp:
+                    if resp.status != 200:
+                        return await interaction.response.send_message("Could not download file...", ephemeral=True)
+                    data = await resp.read()
+                    with open(file_name, 'wb') as f:
+                        f.write(data)
+    
+            # Process the image using the process_image function
+            processed_image_path = process_image(file_name)
+    
+            # Run the vary_image function on the processed image
+            await self.vary_image(interaction, processed_image_path, resolution)
+        else:
+            await interaction.response.send_message("Please upload an image.", ephemeral=True)
+
 
 # Function to set up the Paint cog
 def setup(bot):
