@@ -6,60 +6,31 @@ import os
 import aiohttp
 import io
 from modules.image_process import stitch_images
+from modules.buttons import ImageButton, RegenerateButton, VaryButton, RegenerateVaryButton
 
-class ImageButton(nextcord.ui.Button):
-    def __init__(self, label, image_path):
-        super().__init__(label=label, style=nextcord.ButtonStyle.primary)
-        self.image_path = image_path
-
-    async def callback(self, interaction: nextcord.Interaction):
-        with open(self.image_path, 'rb') as f:
-            picture = nextcord.File(f)
-            await interaction.response.send_message(file=picture, ephemeral=True)
-
-class RegenerateButton(nextcord.ui.Button):
-    def __init__(self, size, prompt, cog):
-        super().__init__(style=nextcord.ButtonStyle.primary, label="🔄")
-        self.size = size
-        self.prompt = prompt
-        self.cog = cog
-
-    async def callback(self, interaction: nextcord.Interaction):
-        if not interaction.response.is_done():
-            await interaction.response.defer(ephemeral=True)
-        await interaction.followup.send("Trying again human...", ephemeral=True)
-        await self.cog.generate_image(interaction, self.prompt, self.size)
-
-class VaryButton(nextcord.ui.Button):
-    def __init__(self, label, image_path, size, cog):
-        super().__init__(label=label, style=nextcord.ButtonStyle.secondary)
-        self.image_path = image_path
-        self.size = size
-        self.cog = cog
-
-    async def callback(self, interaction: nextcord.Interaction):
-        if not interaction.response.is_done():
-            await interaction.response.defer(ephemeral=True)
-        await interaction.followup.send("spinning some variety...", ephemeral=True)
-        await self.cog.vary_image(interaction, self.image_path, self.size)
 
 class ImageView(nextcord.ui.View):
-    def __init__(self, image_paths, size, prompt, cog, include_RegenerateButton=False):
+    def __init__(self, image_paths, size, prompt, cog, button_type):
         super().__init__()
         for idx, image_path in enumerate(image_paths):
             image_button = ImageButton(label=f'I{idx+1}', image_path=image_path)
             image_button.row = 0
             self.add_item(image_button)
 
-        if include_RegenerateButton:
+        if button_type == 'regenerate':
             regenerate_button = RegenerateButton(size, prompt, cog)
             regenerate_button.row = 0
             self.add_item(regenerate_button)
+        elif button_type == 'regenerate_vary':
+            regenerate_vary_button = RegenerateVaryButton(size, image_paths[0], cog)
+            regenerate_vary_button.row = 0
+            self.add_item(regenerate_vary_button)
 
         for idx, image_path in enumerate(image_paths):
             vary_button = VaryButton(label=f'V{idx+1}', image_path=image_path, size=size, cog=cog)
             vary_button.row = 1
             self.add_item(vary_button)
+
 
 class Paint(commands.Cog):
     def __init__(self, bot):
@@ -92,7 +63,7 @@ class Paint(commands.Cog):
             embed.set_thumbnail(url="https://gateway.ipfs.io/ipfs/QmeQZvBhbZ1umA4muDzUGfLNQfnJmmTVsW3uRGJSXxXWXK")
             embed.set_image(url=f"attachment://{file_to_send}")
 
-        view = ImageView(image_files, size, user_prompt, self, include_RegenerateButton=True)
+        view = ImageView(image_files, size, user_prompt, self, 'regenerate')
         await interaction.followup.send(embed=embed, file=picture, view=view)
 
         os.remove(file_to_send)
@@ -130,7 +101,7 @@ class Paint(commands.Cog):
             embed.set_thumbnail(url="https://gateway.ipfs.io/ipfs/QmeQZvBhbZ1umA4muDzUGfLNQfnJmmTVsW3uRGJSXxXWXK")
             embed.set_image(url=f"attachment://{file_to_send}")
 
-        view = ImageView(image_files, size, None, self, include_RegenerateButton=False)
+        view = ImageView(image_files, size, None, self, 'regenerate_vary')
         await interaction.followup.send(embed=embed, file=picture, view=view)
 
         os.remove(file_to_send)
