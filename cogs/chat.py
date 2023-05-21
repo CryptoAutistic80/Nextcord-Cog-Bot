@@ -110,46 +110,50 @@ class ChatCog(commands.Cog):
         # Ignore messages from bots
         if message.author.bot:
             return
-          
+              
         # Ignore messages that are not in a thread
         if not isinstance(message.channel, nextcord.Thread):
             return
-    
+        
         # Ignore messages that are not in a private thread
         if message.channel.type != nextcord.ChannelType.private_thread:
             return
-    
+        
         # Get the user's ID
         user_id = message.author.id
-    
+        
         # Ignore messages from users who have no conversation history
         if user_id not in self.conversations:
             return
-    
+        
         # Add the user's message to their conversation history
         self.conversations[user_id].append({"role": "user", "content": message.content})
-    
-        # Indicate that the bot is typing
-        async with message.channel.typing():
-            # Create a chat completion with the user's conversation history
-            # Include the initial message at the beginning of the conversation history
-            response = openai.ChatCompletion.create(
-                model="gpt-4",
-                messages=[self.initial_message] + list(self.conversations[user_id])
-            )
-    
-            # Extract the assistant's reply from the response
-            assistant_reply = response['choices'][0]['message']['content']
-    
-            # Add the assistant's reply to the user's conversation history
-            self.conversations[user_id].append({"role": "assistant", "content": assistant_reply})
-    
-            # Create a view with the end conversation button
-            view = nextcord.ui.View()
-            view.add_item(EndConversationButton(self, user_id))
-    
-            # Send the assistant's reply to the thread with the view
-            await message.channel.send(assistant_reply, view=view)
-
+        
+        # Send a temporary message indicating that the bot is thinking
+        thinking_message = await message.channel.send("HELIUS is thinking...please don't message again")
+        
+        # Create a chat completion with the user's conversation history
+        # Include the initial message at the beginning of the conversation history
+        response = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=[self.initial_message] + list(self.conversations[user_id])
+        )
+        
+        # Extract the assistant's reply from the response
+        assistant_reply = response['choices'][0]['message']['content']
+        
+        # Add the assistant's reply to the user's conversation history
+        self.conversations[user_id].append({"role": "assistant", "content": assistant_reply})
+        
+        # Create a view with the end conversation button
+        view = nextcord.ui.View()
+        view.add_item(EndConversationButton(self, user_id))
+        
+        # Delete the temporary message
+        await thinking_message.delete()
+        
+        # Send the assistant's reply to the thread with the view
+        await message.channel.send(assistant_reply, view=view)
+      
 def setup(bot):
     bot.add_cog(ChatCog(bot))
