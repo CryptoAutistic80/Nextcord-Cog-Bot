@@ -8,9 +8,9 @@ The following `.py` files are included:
 
 1. `main.py`: This file contains the main code for initializing and running the Discord bot. It handles the bot's setup, event handling, and command execution.
 
-2. `chat.py`: This file implements a chat functionality for the Discord bot. It allows users to have interactive conversations with the bot using the `chat` command.
+2. `chat.py`: This file implements a chat functionality for the Discord bot. It allows users to have interactive conversations with the bot using the `/chat` command.
 
-3. `eightball.py`: This file implements a Magic 8-Ball functionality for the Discord bot. Users can ask questions to the Magic 8-Ball using the `magic8ball` command.
+3. `eightball.py`: This file implements a Magic 8-Ball functionality for the Discord bot. Users can ask questions to the Magic 8-Ball using the `/magic8ball` command.
 
 4. `paint.py`: This file implements a painting functionality for the Discord bot. It allows users to generate and manipulate images based on text prompts or uploaded images.
 
@@ -32,17 +32,17 @@ The following `.py` files are included:
 
    - Once the bot is running, you can interact with it on Discord.
 
-   - To use the chat functionality, use the `chat` command. For example, `!chat Hello, bot!` initiates a conversation with the bot.
+   - To use the chat functionality, use the `/chat` command. For example, `/chat Hello, bot!` initiates a conversation with the bot.
 
-   - To use the Magic 8-Ball functionality, use the `magic8ball` command. For example, `!magic8ball Will it rain tomorrow?` asks the Magic 8-Ball a question.
+   - To use the Magic 8-Ball functionality, use the `/magic8ball` command. For example, `/magic8ball Will it rain tomorrow?` asks the Magic 8-Ball a question.
 
    - To use the painting functionality, there are two options:
 
-     - Use the `paint` command with a text prompt to generate an image. For example, `!paint "A beautiful sunset" --resolution 512x512` generates an image based on the prompt.
+     - Use the `/paint` command with a text prompt to generate an image. For example, `/paint "A beautiful sunset" --resolution 512x512` generates an image based on the prompt.
 
-     - Use the `upload` command to upload an image and generate variations. For example, `!upload --resolution 1024x1024` allows you to upload an image and generate variations based on the resolution.
+     - Use the `/upload` command to upload an image and generate variations. For example, `/upload --resolution 1024x1024` allows you to upload an image and generate variations based on the resolution.
 
-   - To ping the bot, use the `ping` command. For example, `!ping` pings the bot and displays the bot's latency.
+   - To ping the bot, use the `/ping` command. For example, `/ping` pings the bot and displays the bot's latency.
 
 4. **Interacting with Buttons**:
 
