@@ -1,27 +1,38 @@
-import random  # Importing the random module for generating random choices
-import json  # Importing the json module for working with JSON data
-import nextcord  # Importing the nextcord library, a Python wrapper for the Discord API
-from nextcord.ext import commands  # Importing the commands extension from nextcord library
+import random
+import json
+import nextcord
+import os
+from nextcord.ext import commands
+import openai  # Import the OpenAI API
 
-# Defining a class named EightBall that extends commands.Cog, representing the Magic 8-Ball functionality
 class EightBall(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.responses = []
+        self.prompt = ""
 
-        # Load responses from the .json file
-        with open('json/responses.json', 'r') as file:
-            self.responses = json.load(file)
+        # Load prompt from the .json file
+        with open('json/eightball_prompt.json', 'r') as file:
+            self.prompt = json.load(file)['prompt']
 
-    # Event listener decorator for the on_ready event
+        # Set the OpenAI API key from a Replit secret
+        openai.api_key = os.getenv("Key_OpenAI")
+
     @commands.Cog.listener()
     async def on_ready(self):
         print("8 Ball ready!")
 
-    # Slash command decorator for the magic8ball command
     @nextcord.slash_command(description="Ask the Magic 8-Ball a question")
     async def magic8ball(self, interaction: nextcord.Interaction, question: str):
-        response = random.choice(self.responses)  # Select a random response from the list of responses
+        # Show that the bot is "thinking"
+        await interaction.response.defer()
+
+        # Generate a response using the GPT-3 model
+        response = openai.Completion.create(
+            engine="text-davinci-003",
+            prompt=self.prompt + question,
+            max_tokens=60,
+            temperature=0.8  # Set the temperature to 0.8
+        ).choices[0].text.strip()
 
         # Create an embed to send as a response
         embed = nextcord.Embed(
@@ -33,8 +44,7 @@ class EightBall(commands.Cog):
         embed.set_thumbnail(url="https://gateway.ipfs.io/ipfs/QmeQZvBhbZ1umA4muDzUGfLNQfnJmmTVsW3uRGJSXxXWXK")
 
         # Send the embed as a response to the interaction
-        await interaction.send(embed=embed)
+        await interaction.followup.send(embed=embed)
 
-# Function to set up the EightBall cog
 def setup(bot):
     bot.add_cog(EightBall(bot))

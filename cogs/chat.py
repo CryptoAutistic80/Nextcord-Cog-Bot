@@ -58,7 +58,7 @@ class ChatCog(commands.Cog):
         self.connect_to_db()
 
     def connect_to_db(self):
-        self.conn = sqlite3.connect('conversation_history.db')
+        self.conn = sqlite3.connect('ai_resources/conversation_history.db')
         self.c = self.conn.cursor()
         self.c.execute('''
             CREATE TABLE IF NOT EXISTS history (

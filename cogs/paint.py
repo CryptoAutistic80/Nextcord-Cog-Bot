@@ -51,7 +51,7 @@ class Paint(commands.Cog):
             await interaction.response.defer()
 
         size_str = size
-        os.makedirs('new_images', exist_ok=True)
+        os.makedirs('ai_resources/new_images', exist_ok=True)
 
         # Set the OpenAI API key
         openai.api_key = os.getenv('Key_OpenAI')
@@ -80,7 +80,7 @@ class Paint(commands.Cog):
     # Asynchronous method for varying an image based on the image path and size
     async def vary_image(self, interaction, image_path, size):
         size_str = size
-        os.makedirs('new_images', exist_ok=True)
+        os.makedirs('ai_resources/new_images', exist_ok=True)
 
         # If the image path is a local file
         if not (image_path.startswith('http://') or image_path.startswith('https://')):
@@ -149,7 +149,7 @@ class Paint(commands.Cog):
     
         if image_url:
             # Download the image and save it locally
-            file_name = "new_images/uploaded_image.png"
+            file_name = "ai_resources/new_images/uploaded_image.png"
             async with aiohttp.ClientSession() as session:
                 async with session.get(image_url) as resp:
                     if resp.status != 200:
