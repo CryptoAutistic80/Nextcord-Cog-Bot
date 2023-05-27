@@ -28,7 +28,7 @@ from cogs.chat import ChatCog
 
 class ExcludeSpecificLogFilter(logging.Filter):
     def filter(self, record):
-        if record.name == 'nextcord.gateway' and 'heartbeat blocked' in record.getMessage():
+        if 'heartbeat blocked' in record.getMessage() or 'Loop thread traceback' in record.getMessage():
             return False
         return True
 
@@ -37,12 +37,19 @@ logging.basicConfig(level=logging.INFO,
                     filename='bot.log')
 
 logger = logging.getLogger('discord')
+gateway_logger = logging.getLogger('nextcord.gateway')
+
 logger.setLevel(logging.DEBUG)
+gateway_logger.setLevel(logging.DEBUG)
+
 handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
 handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
-logger.addHandler(handler)
+
 f = ExcludeSpecificLogFilter()
-logger.addFilter(f)
+handler.addFilter(f)
+
+logger.addHandler(handler)
+gateway_logger.addHandler(handler)
 
 intents = nextcord.Intents.all()
 intents.members = True
@@ -76,5 +83,5 @@ async def main():
 
 keep_alive.keep_alive()
 
-loop = asyncio.get_event_loop()
-loop.run_until_complete(main())
+if __name__ == "__main__":
+    asyncio.run(main())

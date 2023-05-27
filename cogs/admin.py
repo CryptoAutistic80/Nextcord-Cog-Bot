@@ -4,6 +4,7 @@ import aiohttp
 import json
 import logging
 from datetime import datetime
+from modules.keywords import get_keywords
 
 # Set up logging
 logging.basicConfig(filename='bot.log', level=logging.INFO)
@@ -65,17 +66,40 @@ class Administrator(commands.Cog):
             await interaction.response.send_message("Only an admin can use this command.", ephemeral=True)
             return
     
+        # Defer the interaction response to indicate that the bot is working on the request
+        await interaction.response.defer()
+    
         user_id = user.id
     
-        # Delete the thread
+        # Save the conversation to the database
         chat_cog = self.bot.get_cog('ChatCog')
+        if user_id in chat_cog.conversations:
+            history = chat_cog.conversations[user_id]
+            keywords_metadata = await get_keywords([msg for msg in list(history) if msg['role'] != 'system'])
+
+            for message in history:
+                if message['role'] != 'system':
+                    timestamp = datetime.now().isoformat()
+                    role = message['role']
+                    content = message['content']
+                    keywords = json.dumps(keywords_metadata)
+                    await chat_cog.c.execute(
+                        '''
+                        INSERT INTO history (timestamp, user_id, role, content, keywords)
+                        VALUES (?, ?, ?, ?, ?)
+                        ''', (timestamp, user_id, role, content, keywords))
+            await chat_cog.conn.commit()
+
+            del chat_cog.conversations[user_id]
+
+        # Delete the thread
         if user_id in chat_cog.threads:
             thread = chat_cog.threads[user_id]
             await thread.delete()
             del chat_cog.threads[user_id]
     
-        # Send an ephemeral message to the channel
-        await interaction.response.send_message(f"The chat with user {user.name} has been ended and saved successfully.", ephemeral=True)
+        # Send a follow-up message to the channel
+        await interaction.followup.send(f"The chat with user {user.name} has been ended and saved successfully.", ephemeral=True)
 
 
 def setup(bot):
