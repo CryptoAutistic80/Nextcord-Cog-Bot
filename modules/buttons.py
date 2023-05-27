@@ -3,6 +3,10 @@ from modules.keywords import get_keywords
 from datetime import datetime
 import json
 import asyncio
+import logging
+
+# Set up logging
+logging.basicConfig(filename='bot.log', level=logging.INFO)
 
 class ImageButton(nextcord.ui.Button):
     def __init__(self, label, image_path):
@@ -85,7 +89,7 @@ class EndConversationButton(nextcord.ui.Button):
                         del self.cog.threads[self.user_id]
             await interaction.channel.delete()
         except Exception as e:
-            print(f"An error occurred: {e}")
+            logging.error(f"An error occurred: {e}")
 
 class EndWithoutSaveButton(nextcord.ui.Button):
     def __init__(self, cog, user_id):
@@ -102,6 +106,7 @@ class EndWithoutSaveButton(nextcord.ui.Button):
                         del self.cog.threads[self.user_id]
             await interaction.channel.delete()
         except Exception as e:
-            print(f"An error occurred: {e}")
+            logging.error(f"An error occurred: {e}")
+
 
 

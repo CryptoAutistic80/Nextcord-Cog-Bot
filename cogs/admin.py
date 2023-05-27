@@ -2,7 +2,11 @@ import nextcord
 from nextcord.ext import commands
 import aiohttp
 import json
+import logging
 from datetime import datetime
+
+# Set up logging
+logging.basicConfig(filename='bot.log', level=logging.INFO)
 
 class Administrator(commands.Cog):
     def __init__(self, bot):
@@ -10,7 +14,8 @@ class Administrator(commands.Cog):
 
     @commands.Cog.listener()
     async def on_ready(self):
-        print("Administrator is online!")
+        logging.info("Administrator is online!")
+        print("ADMIN HERE")
 
     @nextcord.slash_command(description="Uploads the most recent PDF files sent by the user")
     async def pdf_upload(self, interaction: nextcord.Interaction, num_pdfs: int = 1):
@@ -75,6 +80,7 @@ class Administrator(commands.Cog):
 
 def setup(bot):
     bot.add_cog(Administrator(bot))
+
 
 
 

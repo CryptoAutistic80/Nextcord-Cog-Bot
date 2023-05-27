@@ -1,6 +1,10 @@
-import os  # Importing the os library for interacting with the operating system
-import time  # Importing the time module for working with time-related operations
-from nextcord.ext import commands, tasks  # Importing the tasks module from nextcord.ext
+import os
+import time
+import logging
+from nextcord.ext import commands, tasks
+
+# Set up logging
+logging.basicConfig(filename='bot.log', level=logging.INFO)
 
 class Maintenance(commands.Cog):
     def __init__(self, bot, delete_after=3600, check_interval=3600):
@@ -10,7 +14,7 @@ class Maintenance(commands.Cog):
         self.check_interval = check_interval  # Time in seconds indicating how often to check for old files
         self.cleaner.start()  # Start the cleaner task
 
-    @tasks.loop(seconds=3600)  # Decorator to make the cleaner function a looping task that runs every 3600 seconds (1 hour)
+    @tasks.loop(seconds=3600)
     async def cleaner(self):
         # Walk through all files in the directory
         for foldername, subfolders, filenames in os.walk(self.folder_path):
@@ -19,16 +23,19 @@ class Maintenance(commands.Cog):
                 # If the file is older than the specified time, delete it
                 if os.path.getmtime(file_path) < time.time() - self.delete_after:
                     os.remove(file_path)
-                    print(f"Deleted file: {file_path}")
+                    logging.info(f"Deleted file: {file_path}")
+                    logging.getLogger('discord').info(f"Deleted file: {file_path}")
 
     @cleaner.before_loop
     async def before_cleaner(self):
-        print("File cleaner started...")
+        logging.info("File cleaner started...")
 
     def cog_unload(self):
         self.cleaner.cancel()  # Cancel the cleaner task when the cog is unloaded
 
 def setup(bot):
     bot.add_cog(Maintenance(bot))
+
+
 
 

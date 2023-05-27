@@ -2,13 +2,17 @@ import os
 from PIL import Image
 from datetime import datetime
 import urllib.request
+import logging
+
+# Set up logging
+logging.basicConfig(filename='bot.log', level=logging.INFO)
 
 def stitch_images(response):
     image_files = []
 
     for idx, img in enumerate(response['data']):
         image_url = img['url']
-        print(image_url)
+        logging.info(f"Processing image: {image_url}")
 
         file_name = "ai_resources/new_images/image" + datetime.now().strftime('%Y-%m-%d-%H-%M-%S') + f"_{idx}.png"
         urllib.request.urlretrieve(image_url, file_name)
@@ -59,6 +63,7 @@ def process_image(image_path):
     while os.path.getsize(image_path) > 4 * 1024 * 1024:
         img = Image.open(image_path)
         img.save(image_path, optimize=True, quality=50)
-        
+
     return image_path
+
 
