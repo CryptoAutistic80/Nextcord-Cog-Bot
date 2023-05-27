@@ -1,10 +1,10 @@
 import os  # Importing the os library for interacting with the operating system
 import time  # Importing the time module for working with time-related operations
-from nextcord.ext import tasks  # Importing the tasks module from nextcord.ext
+from nextcord.ext import commands, tasks  # Importing the tasks module from nextcord.ext
 
-# Defining a class named Maintenance
-class Maintenance:
-    def __init__(self, delete_after=3600, check_interval=3600):
+class Maintenance(commands.Cog):
+    def __init__(self, bot, delete_after=3600, check_interval=3600):
+        self.bot = bot
         self.folder_path = './new_images/'
         self.delete_after = delete_after  # Time in seconds after which files should be deleted
         self.check_interval = check_interval  # Time in seconds indicating how often to check for old files
@@ -24,4 +24,11 @@ class Maintenance:
     @cleaner.before_loop
     async def before_cleaner(self):
         print("File cleaner started...")
+
+    def cog_unload(self):
+        self.cleaner.cancel()  # Cancel the cleaner task when the cog is unloaded
+
+def setup(bot):
+    bot.add_cog(Maintenance(bot))
+
 

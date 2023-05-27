@@ -1,11 +1,8 @@
 import nextcord
 from nextcord.ext import commands
 import aiohttp
-import asyncio
 import json
-from modules.keywords import get_keywords
 from datetime import datetime
-from cogs.chat import ChatCog
 
 class Administrator(commands.Cog):
     def __init__(self, bot):
@@ -65,27 +62,8 @@ class Administrator(commands.Cog):
     
         user_id = user.id
     
-        # Access the instance of ChatCog from the bot instance and replicate the functionality of EndConversationButton here
-        chat_cog = self.bot.get_cog('ChatCog')
-        if user_id in chat_cog.conversations:
-            history = chat_cog.conversations[user_id]
-            keywords_metadata = get_keywords([msg for msg in list(history) if msg['role'] != 'system'])
-    
-            for message in history:
-                if message['role'] != 'system':
-                    timestamp = datetime.now().isoformat()
-                    role = message['role']
-                    content = message['content']
-                    keywords = json.dumps(keywords_metadata)
-                    chat_cog.c.execute('''
-                        INSERT INTO history (timestamp, user_id, role, content, keywords)
-                        VALUES (?, ?, ?, ?, ?)
-                    ''', (timestamp, user_id, role, content, keywords))
-            chat_cog.conn.commit()
-    
-            del chat_cog.conversations[user_id]
-    
         # Delete the thread
+        chat_cog = self.bot.get_cog('ChatCog')
         if user_id in chat_cog.threads:
             thread = chat_cog.threads[user_id]
             await thread.delete()
@@ -97,5 +75,8 @@ class Administrator(commands.Cog):
 
 def setup(bot):
     bot.add_cog(Administrator(bot))
+
+
+
 
 

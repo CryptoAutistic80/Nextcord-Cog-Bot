@@ -17,49 +17,55 @@
 #      (Crypto Autistic)
 
 import openai
-import asyncio  # Importing the asyncio library for asynchronous programming
-import os  # Importing the os library for interacting with the operating system
-import nextcord  # Importing the nextcord library, a Python wrapper for the Discord API
-from nextcord.ext import commands  # Importing the commands extension from nextcord library
-import keep_alive  # Importing the keep_alive module for keeping the bot alive
-from modules.maintenance import Maintenance  # Importing the Maintenance class from the modules.maintenance module
+import asyncio
+import os
+import nextcord
+from nextcord.ext import commands
+import keep_alive
+import logging 
 
-# Creating an instance of the Intents class with all intents enabled
+from cogs.chat import ChatCog 
+
+logging.basicConfig(level=logging.INFO, 
+                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', 
+                    filename='bot.log')
+
+logger = logging.getLogger('discord')
+logger.setLevel(logging.DEBUG)
+handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
+handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
+logger.addHandler(handler)
+
 intents = nextcord.Intents.all()
 intents.members = True
 
-# Creating a new bot instance with a command prefix of '.' and the specified intents
 bot = commands.Bot(command_prefix=".", intents=intents, help_command=None)
 
-# Retrieving environment vauiables token from the environment variable
-discord_token = os.environ['DISCORD_TOKEN']
-# Set the OpenAI API key as an environment variable
-openai.api_key = os.environ['Key_OpenAI']
+discord_token = os.getenv('DISCORD_TOKEN')
+openai.api_key = os.getenv('Key_OpenAI')
 
-# Event handler for when the bot is ready
 @bot.event
 async def on_ready():
-    print(f'We have logged in as {bot.user}')
+    logger.info(f'We have logged in as {bot.user}')
 
-    Maintenance()  # Start the maintenance task
-
-# Function to load all the cogs (modules) from the 'cogs' directory
 def load():
+    chat_cog = ChatCog(bot)
+    bot.chat_cog = chat_cog
     for filename in os.listdir('./cogs'):
         if filename.endswith('.py'):
-            bot.load_extension(f'cogs.{filename[:-3]}')
+            if filename[:-3] == 'admin':
+                bot.load_extension(f'cogs.{filename[:-3]}')
+            else:
+                bot.load_extension(f'cogs.{filename[:-3]}')
 
-# Asynchronous function that serves as the entry point for the bot
 async def main():
-    load()  # Load all the cogs
-    await bot.start(discord_token)  # Start the bot with the specified token
+    try:
+        load()
+        await bot.start(discord_token)
+    finally:
+        if 'chat_cog' in bot.__dict__:
+            await bot.chat_cog.close()
 
-# Call keep_alive function to keep the bot alive
 keep_alive.keep_alive()
 
-# Start the bot by running the main function using asyncio's run() method
 asyncio.run(main())
-
-
-
-
