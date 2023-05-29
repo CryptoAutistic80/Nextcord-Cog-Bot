@@ -3,10 +3,6 @@ import nextcord
 from nextcord.ext import commands
 import openai
 import asyncio
-import logging
-
-# Set up logging
-logging.basicConfig(filename='bot.log', level=logging.INFO)
 
 class EightBall(commands.Cog):
     def __init__(self, bot):
@@ -19,7 +15,6 @@ class EightBall(commands.Cog):
 
     @commands.Cog.listener()
     async def on_ready(self):
-        logging.info("8 Ball ready!")
         print("Magic balls shaken")
 
     @nextcord.slash_command(description="Ask the Magic 8-Ball a question")

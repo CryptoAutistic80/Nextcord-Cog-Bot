@@ -6,12 +6,8 @@ import os
 import aiohttp
 import asyncio
 import io
-import logging
 from modules.image_process import stitch_images, process_image
 from modules.buttons import ImageButton, RegenerateButton, VaryButton, RegenerateVaryButton
-
-# Set up logging
-logging.basicConfig(filename='bot.log', level=logging.INFO)
 
 class ImageView(nextcord.ui.View):
     def __init__(self, image_paths, size, prompt, cog, button_type):
@@ -42,7 +38,6 @@ class Paint(commands.Cog):
 
     @commands.Cog.listener()
     async def on_ready(self):
-        logging.info("Paintbrushes are live!")
         print("Paints mixed")
 
     async def generate_image(self, interaction, user_prompt, size):

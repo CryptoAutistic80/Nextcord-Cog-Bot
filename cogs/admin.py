@@ -2,12 +2,8 @@ import nextcord
 from nextcord.ext import commands
 import aiohttp
 import json
-import logging
 from datetime import datetime
 from modules.keywords import get_keywords
-
-# Set up logging
-logging.basicConfig(filename='bot.log', level=logging.INFO)
 
 class Administrator(commands.Cog):
     def __init__(self, bot):
@@ -15,7 +11,6 @@ class Administrator(commands.Cog):
 
     @commands.Cog.listener()
     async def on_ready(self):
-        logging.info("Administrator is online!")
         print("ADMIN HERE")
 
     @nextcord.slash_command(description="Uploads the most recent PDF files sent by the user")
@@ -76,7 +71,7 @@ class Administrator(commands.Cog):
         if user_id in chat_cog.conversations:
             history = chat_cog.conversations[user_id]
             keywords_metadata = await get_keywords([msg for msg in list(history) if msg['role'] != 'system'])
-
+    
             for message in history:
                 if message['role'] != 'system':
                     timestamp = datetime.now().isoformat()
@@ -89,9 +84,13 @@ class Administrator(commands.Cog):
                         VALUES (?, ?, ?, ?, ?)
                         ''', (timestamp, user_id, role, content, keywords))
             await chat_cog.conn.commit()
-
+    
             del chat_cog.conversations[user_id]
-
+            if user_id in chat_cog.models:
+                del chat_cog.models[user_id]
+            if user_id in chat_cog.last_bot_messages:
+                del chat_cog.last_bot_messages[user_id]
+    
         # Delete the thread
         if user_id in chat_cog.threads:
             thread = chat_cog.threads[user_id]
@@ -104,6 +103,7 @@ class Administrator(commands.Cog):
 
 def setup(bot):
     bot.add_cog(Administrator(bot))
+
 
 
 

@@ -1,10 +1,6 @@
 import os
 import time
-import logging
 from nextcord.ext import commands, tasks
-
-# Set up logging
-logging.basicConfig(filename='bot.log', level=logging.INFO)
 
 class Maintenance(commands.Cog):
     def __init__(self, bot, delete_after=3600, check_interval=3600):
@@ -23,12 +19,10 @@ class Maintenance(commands.Cog):
                 # If the file is older than the specified time, delete it
                 if os.path.getmtime(file_path) < time.time() - self.delete_after:
                     os.remove(file_path)
-                    logging.info(f"Deleted file: {file_path}")
-                    logging.getLogger('discord').info(f"Deleted file: {file_path}")
 
     @cleaner.before_loop
     async def before_cleaner(self):
-        logging.info("File cleaner started...")
+        print()
 
     def cog_unload(self):
         self.cleaner.cancel()  # Cancel the cleaner task when the cog is unloaded

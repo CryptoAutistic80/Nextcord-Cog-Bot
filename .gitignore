@@ -1,5 +1,6 @@
-json/helius_prompt.json
+json/*
 ai_resources/conversation_history.db
 ai_resources/new_images/*
 ai_resources/embeddings/*
 ai_resources/pdf_documents/*
+discord.log

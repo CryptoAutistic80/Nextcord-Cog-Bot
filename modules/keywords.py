@@ -3,10 +3,6 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from collections import Counter
 import asyncio
 import concurrent.futures
-import logging
-
-# Set up logging
-logging.basicConfig(filename='bot.log', level=logging.INFO)
 
 # Load a SpaCy model for NER (make sure to download it first)
 nlp = spacy.load('en_core_web_sm')
@@ -56,7 +52,7 @@ async def get_keywords(conversation_history, num_top_keywords=10):
         "keywords": keywords
     }
 
-    # Log the keywords
-    logging.info("Keywords: %s", keywords)
+    # Print the keywords
+    print("Keywords: %s", keywords)
 
     return metadata
