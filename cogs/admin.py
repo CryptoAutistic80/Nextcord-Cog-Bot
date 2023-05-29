@@ -86,19 +86,22 @@ class Administrator(commands.Cog):
             await chat_cog.conn.commit()
     
             del chat_cog.conversations[user_id]
-            if user_id in chat_cog.models:
-                del chat_cog.models[user_id]
-            if user_id in chat_cog.last_bot_messages:
-                del chat_cog.last_bot_messages[user_id]
+    
+        # Check if the key exists before deleting it
+        if user_id in chat_cog.models:
+            del chat_cog.models[user_id]
+        if user_id in chat_cog.last_bot_messages:
+            del chat_cog.last_bot_messages[user_id]
     
         # Delete the thread
         if user_id in chat_cog.threads:
             thread = chat_cog.threads[user_id]
             await thread.delete()
-            del chat_cog.threads[user_id]
+            if user_id in chat_cog.threads:  # Check again just in case the key was deleted in on_thread_delete
+                del chat_cog.threads[user_id]
     
         # Send a follow-up message to the channel
-        await interaction.followup.send(f"The chat with user {user.name} has been ended and saved successfully.", ephemeral=True)
+        await interaction.followup.send("The users chat has been ended and saved successfully.")
 
 
 def setup(bot):

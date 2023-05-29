@@ -59,13 +59,20 @@ class ChatCog(commands.Cog):
 
     @nextcord.slash_command(description="Start a chat with HELIUS")
     async def chat(self, interaction: nextcord.Interaction, model: str = nextcord.SlashOption(
-        choices={"GPT-4": "gpt-4", "GPT-3.5-TURBO": "gpt-3.5-turbo"},
+        choices={"GPT-3.5-TURBO": "gpt-3.5-turbo", "GPT-4": "gpt-4"},
         description="Choose the model for the chat"
     ), personality: str = nextcord.SlashOption(
-        choices={"Default": "helius_prompt", "Nikola Tesla": "tesla_prompt", "Charles Darwin": "darwin_prompt",
-                 "Napoleon Bonaparte": "napoleon_prompt", "Teddy Roosevelt": "teddy_prompt", "Ghandi": "ghandi_prompt"},
-        description="Choose the personality for the chat",
-        required=False)):
+        choices={
+            "Default": "helius_prompt",
+            "Nikola Tesla": "tesla_prompt",
+            "Charles Darwin": "darwin_prompt",
+            "Napoleon Bonaparte": "napoleon_prompt",
+            "Teddy Roosevelt": "teddy_prompt",
+            "Ghandi": "ghandi_prompt"
+        },
+        description="Choose the personality for the chat (only applicable for GPT-4)",
+        default="helius_prompt"
+    )):
         async with self.lock:
             try:
                 await interaction.response.defer(ephemeral=True)
@@ -92,7 +99,7 @@ class ChatCog(commands.Cog):
                 FROM history
                 WHERE user_id = ?
                 ORDER BY timestamp DESC
-                LIMIT 10
+                LIMIT 24
             ''', (user_id,))
             recent_messages = [{'role': role, 'content': content} for role, content in await self.c.fetchall()]
             logger.info("Finished DB operation")
@@ -103,7 +110,7 @@ class ChatCog(commands.Cog):
                 self.initial_message = json.load(f)['messages'][0]
 
             if user_id not in self.conversations:
-                self.conversations[user_id] = deque(maxlen=10)
+                self.conversations[user_id] = deque(maxlen=24)
                 self.conversations[user_id].append(self.initial_message)
 
             self.conversations[user_id].extend(recent_messages)
