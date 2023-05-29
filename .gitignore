@@ -1,8 +1,6 @@
-discord.log
 json/*
+ai_resources/embeddings/*.json
+ai_resources/new_images/*.png
+ai_resources/pdf_documents/*.pdf
 ai_resources/conversation_history.db
-ai_resources/new_images/*
-ai_resources/embeddings/*
-ai_resources/pdf_documents/*
-touch ai_resources/pdf_documents/.gitkeep
-touch json/.gitkeep
+discord.log
