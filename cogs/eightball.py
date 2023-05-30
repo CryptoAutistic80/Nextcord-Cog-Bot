@@ -17,6 +17,10 @@ class EightBall(commands.Cog):
     async def on_ready(self):
         print("Magic balls shaken")
 
+    def process_question(self, question):
+        # Add "?" at the end of question if it doesn't exist
+        return question if question.endswith("?") else question + "?"
+
     @nextcord.slash_command(description="Ask the Magic 8-Ball a question")
     async def magic8ball(self, interaction: nextcord.Interaction, question: str):
         try:
@@ -24,13 +28,16 @@ class EightBall(commands.Cog):
         except nextcord.NotFound:
             return
 
+        # Process the question
+        processed_question = self.process_question(question)
+
         # Generate a response using the GPT-3 model
         for attempt in range(3):  # Try to generate a response 3 times
             try:
                 response = await asyncio.to_thread(
                     openai.Completion.create,
                     engine="text-davinci-003",
-                    prompt=self.prompt + question,
+                    prompt=self.prompt + processed_question,
                     max_tokens=60,
                     temperature=0.8  # Set the temperature to 0.8
                 )
@@ -49,7 +56,7 @@ class EightBall(commands.Cog):
             title="Magic 8-Ball",
             color=nextcord.Color.blue()
         )
-        embed.add_field(name="Question", value=question, inline=False)
+        embed.add_field(name="Question", value=processed_question, inline=False)
         embed.add_field(name="Answer", value=response_text, inline=False)
         embed.set_thumbnail(url="https://gateway.ipfs.io/ipfs/QmeQZvBhbZ1umA4muDzUGfLNQfnJmmTVsW3uRGJSXxXWXK")
 
@@ -63,6 +70,5 @@ class EightBall(commands.Cog):
             pass
 
 def setup(bot):
-    bot.add_cog(EightBall(bot))
-
+    bot.add_cog(EightBall(bot))  # Add the EightBall cog to the bot
 

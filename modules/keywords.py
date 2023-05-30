@@ -1,10 +1,10 @@
-import spacy
-from sklearn.feature_extraction.text import TfidfVectorizer
-from collections import Counter
-import asyncio
-import concurrent.futures
+import spacy  # A library for advanced Natural Language Processing.
+from sklearn.feature_extraction.text import TfidfVectorizer  # Importing the TF-IDF vectorizer from Scikit-learn
+from collections import Counter  # Counter helps to count frequencies.
+import asyncio  # The asyncio module is used for asynchronous I/O.
+import concurrent.futures  # This module allows running non-blocking I/O operations using ThreadPoolExecutor.
 
-# Load a SpaCy model for NER (make sure to download it first)
+# Load a SpaCy model for NER (Named Entity Recognition).
 nlp = spacy.load('en_core_web_sm')
 
 async def get_tfidf_keywords(conversation_content, num_top_keywords=10):
@@ -35,14 +35,23 @@ async def get_ner_keywords(conversation_content, num_top_keywords=10):
     return top_keywords
 
 async def get_keywords(conversation_history, num_top_keywords=10):
+    # Filter out system messages from the conversation history
+    conversation_history = [message for message in conversation_history if message['role'] != 'system']
+
     # Extract the conversation content
     conversation_content = " ".join([message["content"] for message in conversation_history])
+
+    print("Conversation Content:", conversation_content)  # Debug statement
 
     # Get TF-IDF keywords
     tfidf_keywords = await get_tfidf_keywords(conversation_content, num_top_keywords)
 
+    print("TF-IDF Keywords:", tfidf_keywords)  # Debug statement
+
     # Get NER keywords
     ner_keywords = await get_ner_keywords(conversation_content, num_top_keywords)
+
+    print("NER Keywords:", ner_keywords)  # Debug statement
 
     # Combine the keywords
     keywords = tfidf_keywords + ner_keywords
@@ -53,6 +62,7 @@ async def get_keywords(conversation_history, num_top_keywords=10):
     }
 
     # Print the keywords
-    print("Keywords: %s", keywords)
+    print("Keywords:", keywords)  # Debug statement
 
     return metadata
+
