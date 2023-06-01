@@ -105,7 +105,7 @@ class ChatCog(commands.Cog):
                 FROM history
                 WHERE user_id = ?
                 ORDER BY timestamp DESC
-                LIMIT 24
+                LIMIT 18
             ''', (user_id,))
             recent_messages = [{'role': role, 'content': content} for role, content in await self.c.fetchall()]
             logger.info("Finished DB operation")
@@ -116,7 +116,7 @@ class ChatCog(commands.Cog):
                 self.initial_message = json.load(f)['messages'][0]  # Load the initial message from the JSON file
 
             if user_id not in self.conversations:
-                self.conversations[user_id] = deque(maxlen=24)  # Create a deque to store conversation messages
+                self.conversations[user_id] = deque(maxlen=18)  # Create a deque to store conversation messages
                 self.conversations[user_id].append(self.initial_message)  # Append the initial message
 
             self.conversations[user_id].extend(reversed(recent_messages))

@@ -1,28 +1,108 @@
-import nextcord                        # Module for creating Discord bots
-from nextcord.ext import commands      # Specific class from the nextcord module
-import aiohttp                         # Module for making HTTP requests asynchronously
-import json                            # Module for working with JSON data
-import uuid                            # Module for generating UUIDs
-from datetime import datetime          # Module for working with dates and times
-from modules.keywords import get_keywords  # Import a custom module 'get_keywords' from the 'modules' package
+import os
+import json
+import re
+import uuid
+import aiohttp
+import aiofiles
+import PyPDF2
+import nltk
+import spacy
+import openai
+import numpy as np
+import asyncio
+import nextcord
+from nextcord.ext import commands
+import pinecone
+from datetime import datetime
+from modules.keywords import get_keywords
+from collections import Counter
+from sklearn.feature_extraction.text import TfidfVectorizer
 
-# Define a class 'Administrator' that extends 'commands.Cog'
+PINECONE_KEY = os.getenv("PINECONE_KEY")
+
 class Administrator(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        nltk.download('punkt')  # download the punkt tokenizer
+        self.nlp = spacy.load('en_core_web_sm')  # initialize the nlp object here
 
     @commands.Cog.listener()
     async def on_ready(self):
-        print("ADMIN HERE")  # Print a message when the bot is ready
+        print("ADMIN HERE")
+
+    def extract_text(self, pdf_path):
+        with open(pdf_path, 'rb') as f:
+            pdf = PyPDF2.PdfReader(f)
+            pages = []
+            for page_num in range(len(pdf.pages)):
+                page = pdf.pages[page_num]
+                pages.append({'page_num': page_num+1, 'text': page.extract_text()})
+        return pages
+
+    def split_text_blocking(self, text):
+        sentences = nltk.sent_tokenize(text)
+        return ['\n'.join(sentences[i:i+8]) for i in range(0, len(sentences), 8)]
+
+    async def split_text(self, text):
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, self.split_text_blocking, text)
+
+    def clean_text(self, text):
+        text = text.encode('ascii', errors='ignore').decode('ascii')
+        text = text.replace('\n', ' ')
+        text = re.sub(r'\s+', ' ', text)
+        return text.strip()
+
+    def gpt_embed_blocking(self, text):
+        content = text.encode(encoding='ASCII', errors='ignore').decode()
+        response = openai.Embedding.create(
+            input=content,
+            engine='text-embedding-ada-002'
+        )
+        vector = response['data'][0]['embedding']
+        return vector
+
+    async def gpt_embed(self, text):
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, self.gpt_embed_blocking, text)
+
+    def get_ner_keywords_blocking(self, text, num_keywords):
+        doc = self.nlp(text)
+        named_entities = [ent.text for ent in doc.ents if ent.label_ not in ['DATE', 'CARDINAL']]
+        keywords_counter = Counter(named_entities)
+        top_keywords = [word for word, _ in keywords_counter.most_common(num_keywords)]
+        return top_keywords
+
+    async def get_ner_keywords(self, text, num_keywords):
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, self.get_ner_keywords_blocking, text, num_keywords)
+
+    def get_tfidf_keywords_blocking(self, text, num_keywords):
+        vectorizer = TfidfVectorizer(stop_words='english', max_features=num_keywords)
+        vectorizer.fit_transform([text])
+        feature_names = vectorizer.get_feature_names_out()
+        return list(feature_names)
+
+    async def get_tfidf_keywords(self, text, num_keywords):
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, self.get_tfidf_keywords_blocking, text, num_keywords)
+
+    async def extract_keywords(self, text, num_keywords=4):
+        cleaned_text = self.clean_text(text)
+
+        ner_keywords = await self.get_ner_keywords(cleaned_text, num_keywords)
+    
+        tfidf_keywords = await self.get_tfidf_keywords(cleaned_text, num_keywords)
+
+        keywords = ner_keywords + tfidf_keywords
+
+        return keywords
 
     @nextcord.slash_command(description="Uploads the most recent PDF files sent by the user")
     async def pdf_upload(self, interaction: nextcord.Interaction, num_pdfs: int = 1):
-        # Check if the user has admin permissions
         if interaction.user.guild_permissions.administrator:
-            # Defer the response to indicate that the bot is thinking
             await interaction.response.defer()
 
-            # Find the most recent PDF attachments sent by the user
             messages = await interaction.channel.history(limit=50).flatten()
             pdf_files = []
             for message in messages:
@@ -35,21 +115,51 @@ class Administrator(commands.Cog):
                 if len(pdf_files) >= num_pdfs:
                     break
 
-            # If any PDF files were found, download and save them
             if pdf_files:
                 for pdf_file in pdf_files:
                     async with aiohttp.ClientSession() as session:
                         async with session.get(pdf_file.url) as resp:
                             if resp.status == 200:
-                                with open(f'ai_resources/pdf_documents/{pdf_file.filename}', 'wb') as f:
-                                    f.write(await resp.read())
-                # Send an ephemeral message confirming the upload
-                await interaction.followup.send(f"{len(pdf_files)} PDF file(s) have been uploaded successfully.", ephemeral=True)
+                                file_path = f'ai_resources/pdf_documents/{pdf_file.filename}'
+                                async with aiofiles.open(file_path, 'wb') as f:
+                                    await f.write(await resp.read())
+
+                    pages = self.extract_text(file_path) # removed 'await'
+
+                    embeddings = []
+                    for page in pages:
+                        page_num = page['page_num']
+                        text = page['text']
+                        page_groups = await self.split_text(text)
+                        for i, group in enumerate(page_groups):
+                            cleaned_text = self.clean_text(group)
+                            metadata = {'filename': pdf_file.filename, 'file_number': i+1, 'page_number': page_num, 'uuid': str(uuid.uuid4()), 'text': cleaned_text}
+            
+                            keywords = await self.extract_keywords(cleaned_text)
+                            metadata['keywords'] = keywords
+            
+                            vector = await self.gpt_embed(cleaned_text)
+                            vector_np = np.array(vector)
+                            embeddings.append((metadata['uuid'], vector_np))
+            
+                            output_filename = os.path.join('ai_resources/embeddings/', f'{metadata["uuid"]}.json')
+                            async with aiofiles.open(output_filename, 'w') as f:
+                                await f.write(json.dumps(metadata, indent=4))
+            
+                    batch_size = 100
+                    pinecone.init(api_key=PINECONE_KEY, environment='us-east1-gcp')
+                    pinecone_indexer = pinecone.Index("core-69")
+                    loop = asyncio.get_event_loop()
+                    for i in range(0, len(embeddings), batch_size):
+                        batch = embeddings[i:i + batch_size]
+                        await loop.run_in_executor(None, pinecone_indexer.upsert, [(unique_id, vector_np.tolist()) for unique_id, vector_np in batch], "library")
+
+                await interaction.followup.send(f"{len(pdf_files)} PDF file(s) have been uploaded and processed successfully.", ephemeral=True)
             else:
                 await interaction.followup.send("No recent PDF files found.", ephemeral=True)
         else:
-            # Send an ephemeral message stating that the user lacks the permissions to use this command
             await interaction.response.send_message("You lack the permissions to use this command.", ephemeral=True)
+
 
     @nextcord.slash_command(description="Ends a chat with HELIUS (Admin only)")
     async def end_chat_save(self, interaction: nextcord.Interaction, user: nextcord.User = nextcord.SlashOption(description="The user whose chat should be ended")):
