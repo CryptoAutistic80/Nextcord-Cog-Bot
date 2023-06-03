@@ -2,8 +2,6 @@ import nextcord  # Library for building discord bots
 from modules.keywords import get_keywords  # Module for keyword extraction
 from datetime import datetime  # For getting current time
 import json  # JSON parsing
-import uuid  # UUID generation
-import asyncio  # Asynchronous programming in Python
 
 # The ImageButton class defines a button in the Discord UI that sends an image when clicked.
 class ImageButton(nextcord.ui.Button):

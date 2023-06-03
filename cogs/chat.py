@@ -1,31 +1,66 @@
-import asyncio                    # Module for asynchronous programming
-import uuid                       # UUID generation
-import json                       # Module for working with JSON data
-import logging                    # Module for logging events
-import openai                     # Module for interacting with the OpenAI API
-import aiosqlite                  # Module for working with SQLite databases asynchronously
-import nextcord                   # Module for creating Discord bots
-from nextcord.ext import commands # Specific class from the nextcord module
-from collections import deque     # Container datatype that stores a fixed-size collection of elements
-from modules.buttons import EndConversationButton, EndWithoutSaveButton  # Import custom button modules
+import asyncio
+import uuid
+import json
+import logging
+import openai
+import aiosqlite
+import nextcord
+from nextcord.ext import commands
+from collections import deque
+from modules.buttons import EndConversationButton, EndWithoutSaveButton
+
+import os
+import pinecone
+
+OPENAI_KEY = os.getenv('Key_OpenAI')
+PINECONE_KEY = os.getenv('PINECONE_KEY')
+output_path = "ai_resources/embeddings"
 
 logger = logging.getLogger('discord')
+
+def gpt_embed(text):
+    content = text.encode(encoding='ASCII', errors='ignore').decode()  # Fix any UNICODE errors
+    openai.api_key = OPENAI_KEY
+    response = openai.Embedding.create(
+        input=content,
+        engine='text-embedding-ada-002'
+    )
+    vector = response['data'][0]['embedding']  # This is a normal list
+    return vector
+
+# Initialize pinecone
+pinecone.init(api_key=PINECONE_KEY, environment='us-east1-gcp')
+pinecone_indexer = pinecone.Index("core-69")
+
+async def query_pinecone(query_vector_np, top_k=5, namespace="library"):
+    query_results = pinecone_indexer.query(
+        vector=query_vector_np,
+        top_k=top_k,
+        namespace=namespace,
+    )
+    metadata_list = []
+    for match in query_results['matches']:
+        uuid_val = match['id']
+        with open(os.path.join(output_path, f'{uuid_val}.json'), 'r') as f:
+            metadata = json.load(f)
+        metadata_list.append(metadata)
+    return metadata_list
 
 class ChatCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.conversations = {}  # Dictionary to store conversations with users
-        self.chat_uuids = {}  # Dictionary for storing UUIDs of chat sessions.
-        self.last_bot_messages = {}  # Dictionary to store the last bot message sent to users
-        self.models = {}  # Dictionary to store models for each user
-        self.threads = {}  # Dictionary to store threads for each user
-        self.lock = asyncio.Lock()  # Lock for synchronizing access to shared resources
-
-        self._db_task = asyncio.ensure_future(self.connect_to_db())  # Task for connecting to the database asynchronously
+        self.api_semaphore = asyncio.Semaphore(10)
+        self.conversations = {}
+        self.chat_uuids = {}
+        self.last_bot_messages = {}
+        self.models = {}
+        self.threads = {}
+        self.lock = asyncio.Lock()
+        self._db_task = asyncio.ensure_future(self.connect_to_db())
 
     async def connect_to_db(self):
         logger.info("Starting to connect to DB")
-        self.conn = await aiosqlite.connect('ai_resources/conversation_history.db')  # Connect to the SQLite database
+        self.conn = await aiosqlite.connect('ai_resources/conversation_history.db')
         self.c = await self.conn.cursor()
         await self.c.execute('''
             CREATE TABLE IF NOT EXISTS history (
@@ -43,16 +78,16 @@ class ChatCog(commands.Cog):
     async def close(self):
         for thread_id, thread in self.threads.items():
             try:
-                fetched_thread = await self.bot.fetch_channel(thread_id)  # Fetch the thread from Discord
-                await fetched_thread.delete()  # Delete the thread
+                fetched_thread = await self.bot.fetch_channel(thread_id)
+                await fetched_thread.delete()
                 logging.info(f"Thread for user {thread_id} closed in close function")
             except (nextcord.NotFound, nextcord.HTTPException):
                 continue
 
         if hasattr(self, 'c'):
-            await self.c.close()  # Close the database cursor
+            await self.c.close()
         if hasattr(self, 'conn'):
-            await self.conn.close()  # Close the database connection
+            await self.conn.close()
         await self._db_task
         logger.info("Successfully closed all threads and database connections")
 
@@ -78,18 +113,16 @@ class ChatCog(commands.Cog):
     )):
         async with self.lock:
             try:
-                await interaction.response.defer(ephemeral=True)  # Defer the initial response to the interaction
+                await interaction.response.defer(ephemeral=True)
             except nextcord.NotFound:
                 return
 
             user_id = interaction.user.id
-
-            # Create a new UUID for this user's chat session
             self.chat_uuids[user_id] = str(uuid.uuid4())
 
             if user_id in self.threads:
                 try:
-                    thread = await self.bot.fetch_channel(self.threads[user_id].id)  # Fetch the thread from Discord
+                    thread = await self.bot.fetch_channel(self.threads[user_id].id)
                 except nextcord.NotFound:
                     del self.threads[user_id]
                 else:
@@ -97,7 +130,7 @@ class ChatCog(commands.Cog):
                     return
 
             if self.conn is None or self.c is None:
-                await self.connect_to_db()  # Connect to the database if not already connected
+                await self.connect_to_db()
 
             logger.info("Starting DB operation")
             await self.c.execute('''
@@ -113,24 +146,24 @@ class ChatCog(commands.Cog):
             if personality is None or model == "gpt-3.5-turbo":
                 personality = "helius_prompt"
             with open(f'json/{personality}.json') as f:
-                self.initial_message = json.load(f)['messages'][0]  # Load the initial message from the JSON file
+                self.initial_message = json.load(f)['messages'][0]
 
             if user_id not in self.conversations:
-                self.conversations[user_id] = deque(maxlen=18)  # Create a deque to store conversation messages
-                self.conversations[user_id].append(self.initial_message)  # Append the initial message
+                self.conversations[user_id] = deque(maxlen=18)
+                self.conversations[user_id].append(self.initial_message)
 
             self.conversations[user_id].extend(reversed(recent_messages))
-            self.models[user_id] = model  # Store the model for the user
+            self.models[user_id] = model
 
-            thread = await interaction.channel.create_thread(name=f"Chat with {interaction.user.name}", type=nextcord.ChannelType.private_thread)  # Create a private thread
+            thread = await interaction.channel.create_thread(name=f"Chat with {interaction.user.name}", type=nextcord.ChannelType.private_thread)
             self.threads[user_id] = thread
             logging.info(f"Thread created for user {user_id} in chat function")
 
-            initial_view = nextcord.ui.View()  # Create a view for buttons
-            initial_view.add_item(EndWithoutSaveButton(self, user_id))  # Add an "End without Save" button
-            initial_message = await thread.send(f"Welcome to the chat {interaction.user.mention}! You can start by typing a message.", view=initial_view)  # Send an initial message to the thread
+            initial_view = nextcord.ui.View()
+            initial_view.add_item(EndWithoutSaveButton(self, user_id))
+            initial_message = await thread.send(f"Welcome to the chat {interaction.user.mention}! You can start by typing a message.", view=initial_view)
 
-            self.last_bot_messages[user_id] = initial_message  # Store the initial message as the last bot message
+            self.last_bot_messages[user_id] = initial_message
 
             await interaction.followup.send("A private thread has been created for your chat.", ephemeral=True)
             logger.info(f"User {user_id} started a chat session using model: {model}")
@@ -148,7 +181,6 @@ class ChatCog(commands.Cog):
         if user_id not in self.conversations:
             return
 
-        # Append the user message to the conversation
         self.conversations[user_id].append({
             'role': 'user',
             'content': message.content,
@@ -161,14 +193,25 @@ class ChatCog(commands.Cog):
         thinking_message = await message.channel.send("HELIUS is thinking...please don't message again even if it appears I'm not typing. Remember I'm not a supercomputer....yet!")
 
         async with message.channel.typing():
+            user_embedding = gpt_embed(message.content)
+            similar_embeddings = await query_pinecone(user_embedding, top_k=5)
+
+            assistant_messages = []
+            for metadata in similar_embeddings:
+                assistant_message = f"This information will help me answer your query: {metadata['text']}"
+                assistant_messages.append({'role': 'assistant', 'content': assistant_message})
+            
+            self.conversations[user_id].extend(assistant_messages)
+
             for attempt in range(30):
                 try:
                     logger.info("Starting OpenAI call")
-                    response = await asyncio.to_thread(
-                        openai.ChatCompletion.create,
-                        model=self.models[user_id],
-                        messages=[self.initial_message] + list(self.conversations[user_id])
-                    )  # Call the OpenAI API to get a response
+                    async with self.api_semaphore:
+                        response = await asyncio.to_thread(
+                            openai.ChatCompletion.create,
+                            model=self.models[user_id],
+                            messages=[self.initial_message] + list(self.conversations[user_id])
+                        )
                     logger.info("Finished OpenAI call")
                     break
                 except openai.OpenAIError as e:
@@ -177,13 +220,11 @@ class ChatCog(commands.Cog):
                         await self.send_message_safe("Sorry the API is a bit jammed up, hold tight and try again soon. Thanks human.")
                         return
                     elif 'rate limit' in str(e):
-                        await asyncio.sleep(60)  # Wait for 60 seconds before retrying
+                        await asyncio.sleep(60)
                     else:
-                        await asyncio.sleep(1)  # Wait for 1 second before retrying
+                        await asyncio.sleep(1)
 
-        assistant_reply = response['choices'][0]['message']['content']  # Extract the assistant's reply from the response
-
-        # Append the assistant's reply to the conversation
+        assistant_reply = response['choices'][0]['message']['content']
         self.conversations[user_id].append({
             'role': 'assistant',
             'content': assistant_reply,
@@ -191,16 +232,16 @@ class ChatCog(commands.Cog):
 
         if user_id in self.last_bot_messages:
             last_bot_message = self.last_bot_messages[user_id]
-            await last_bot_message.edit(view=None)  # Remove the buttons from the last bot message
+            await last_bot_message.edit(view=None)
 
-        new_view = nextcord.ui.View()  # Create a new view for buttons
-        new_view.add_item(EndConversationButton(self, user_id))  # Add an "End Conversation" button
-        new_view.add_item(EndWithoutSaveButton(self, user_id))  # Add an "End without Save" button
-        new_bot_message = await self.send_message_safe(message.channel.send(assistant_reply, view=new_view))  # Send the assistant's reply with buttons
+        new_view = nextcord.ui.View()
+        new_view.add_item(EndConversationButton(self, user_id))
+        new_view.add_item(EndWithoutSaveButton(self, user_id))
+        new_bot_message = await self.send_message_safe(message.channel.send(assistant_reply, view=new_view))
 
-        self.last_bot_messages[user_id] = new_bot_message  # Update the last bot message
+        self.last_bot_messages[user_id] = new_bot_message
 
-        await thinking_message.delete()  # Delete the thinking message
+        await thinking_message.delete()
 
     async def send_message_safe(self, coro):
         try:
@@ -216,13 +257,14 @@ class ChatCog(commands.Cog):
             user_id = self.threads[thread.id]
             if user_id in self.conversations:
                 del self.conversations[user_id]
-            if user_id in self.models:  # Check if the key exists before deleting
+            if user_id in self.models:
                 del self.models[user_id]
-            if user_id in self.last_bot_messages:  # Check if the key exists before deleting
+            if user_id in self.last_bot_messages:
                 del self.last_bot_messages[user_id]
-            if user_id in self.chat_uuids:  # Check if the key exists before deleting
+            if user_id in self.chat_uuids:
                 del self.chat_uuids[user_id]
             del self.threads[thread.id]
 
 def setup(bot):
-    bot.add_cog(ChatCog(bot))  # Add the ChatCog as a cog to the bot
+    bot.add_cog(ChatCog(bot))
+

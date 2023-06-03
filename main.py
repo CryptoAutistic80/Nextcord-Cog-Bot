@@ -68,22 +68,23 @@ async def on_ready():
     logging.info('Bot has connected to Discord!')  # Log a message
     print('Bot has connected to Discord!')        # Print a message
 
-# Define a function to load bot commands and extensions
 def load():
     chat_cog = ChatCog(bot)  # Create an instance of the 'ChatCog' class
     bot.chat_cog = chat_cog  # Store the instance in the bot object
     for filename in os.listdir('./cogs'):     # Iterate over files in the 'cogs' directory
         if filename.endswith('.py'):          # Check if the file has a '.py' extension
-            if filename[:-3] == 'admin':      # Check if the file name without the extension is 'admin'
-                bot.load_extension(f'cogs.{filename[:-3]}')  # Load the extension
-            else:
-                bot.load_extension(f'cogs.{filename[:-3]}')  # Load the extension
+            cog_name = filename[:-3]
+            try:
+                logging.info(f"Loading cog: {cog_name}")  # Log the cog being loaded
+                bot.load_extension(f'cogs.{cog_name}')  # Load the extension
+            except Exception as e:  # Catch any exception
+                logging.error(f"Failed to load cog: {cog_name}. Error: {e}")  # Log the exception
 
 # Define an async function 'main' to perform the main tasks
 async def main():
     try:
         load()                                 # Load bot commands and extensions
-        worker = Worker(bot, 5)                # Create an instance of the 'Worker' class with max_tasks set to 5
+        worker = Worker(bot, 10)                # Create an instance of the 'Worker' class with max_tasks set to 5
         await worker.task()                    # Execute the bot's task asynchronously
     finally:
         if 'chat_cog' in bot.__dict__:

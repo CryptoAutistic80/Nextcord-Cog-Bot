@@ -11,7 +11,9 @@ import openai
 import numpy as np
 import asyncio
 import nextcord
+from urllib.parse import urljoin
 from nextcord.ext import commands
+from bs4 import BeautifulSoup
 import pinecone
 from datetime import datetime
 from modules.keywords import get_keywords
@@ -53,8 +55,7 @@ class Administrator(commands.Cog):
         text = re.sub(r'\s+', ' ', text)
         return text.strip()
 
-    def gpt_embed_blocking(self, text):
-        content = text.encode(encoding='ASCII', errors='ignore').decode()
+    async def create_embedding(self, content):
         response = openai.Embedding.create(
             input=content,
             engine='text-embedding-ada-002'
@@ -63,8 +64,9 @@ class Administrator(commands.Cog):
         return vector
 
     async def gpt_embed(self, text):
-        loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(None, self.gpt_embed_blocking, text)
+        content = text.encode(encoding='ASCII', errors='ignore').decode()
+        vector = await self.create_embedding(content)
+        return vector
 
     def get_ner_keywords_blocking(self, text, num_keywords):
         doc = self.nlp(text)
@@ -219,6 +221,55 @@ class Administrator(commands.Cog):
 
         # Send a follow-up message to the channel
         await interaction.followup.send("The users chat has been ended and saved successfully.")
+
+    @nextcord.slash_command(description="Scrapes the entered URL and all URLs that branch from it (Admin only)")
+    async def scrape(self, interaction: nextcord.Interaction, url: str = nextcord.SlashOption(description="The URL to scrape")):
+        # Check for admin permissions
+        if not interaction.user.guild_permissions.administrator:
+            await interaction.response.send_message("Only an admin can use this command.", ephemeral=True)
+            return
+
+        # Defer the interaction response to indicate that the bot is working on the request
+        await interaction.response.defer()
+
+        # Scrape the entered URL
+        await self.scrape_url(url)
+
+        # Send a follow-up message to the channel
+        await interaction.followup.send("The URL has been scraped successfully.")
+
+    async def scrape_url(self, url, scraped_urls=None):
+        if scraped_urls is None:
+            scraped_urls = set()
+
+        # Check if the URL has already been scraped
+        if url in scraped_urls:
+            return
+
+        scraped_urls.add(url)
+
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url) as response:
+                    html = await response.text()
+        except Exception as e:
+            print(f"Error scraping {url}: {e}")
+            return
+
+        soup = BeautifulSoup(html, 'html.parser')
+
+        # Extract all URLs from the page
+        urls = [urljoin(url, a['href']) for a in soup.find_all('a', href=True)]
+
+        # Save the text of the page to a .txt file
+        text = soup.get_text()
+        filename = re.sub(r'\W+', '_', url) + '.txt'
+        with open(filename, 'w') as f:
+            f.write(text)
+
+        # Scrape each URL
+        for url in urls:
+            await self.scrape_url(url, scraped_urls)
 
 # Function to set up the 'Administrator' cog
 def setup(bot):

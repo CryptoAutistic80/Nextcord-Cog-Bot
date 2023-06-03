@@ -24,6 +24,10 @@ class Maintenance(commands.Cog):
     async def before_cleaner(self):
         print()
 
+    @commands.Cog.listener()
+    async def on_ready(self):
+        print("Maintenance Running")
+
     def cog_unload(self):
         self.cleaner.cancel()  # Cancel the cleaner task when the cog is unloaded
 
