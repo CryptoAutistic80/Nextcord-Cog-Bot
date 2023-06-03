@@ -8,6 +8,7 @@ import nextcord
 from nextcord.ext import commands
 from collections import deque
 from modules.buttons import EndConversationButton, EndWithoutSaveButton
+from config import TOP_K, MAX_API_REQUESTS_CHAT, CONVO_LENGTH, PERSONALITY, BOT_TOKENS
 
 import os
 import pinecone
@@ -32,7 +33,7 @@ def gpt_embed(text):
 pinecone.init(api_key=PINECONE_KEY, environment='us-east1-gcp')
 pinecone_indexer = pinecone.Index("core-69")
 
-async def query_pinecone(query_vector_np, top_k=5, namespace="library"):
+async def query_pinecone(query_vector_np, top_k=TOP_K, namespace="library"):
     query_results = pinecone_indexer.query(
         vector=query_vector_np,
         top_k=top_k,
@@ -49,7 +50,7 @@ async def query_pinecone(query_vector_np, top_k=5, namespace="library"):
 class ChatCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.api_semaphore = asyncio.Semaphore(10)
+        self.api_semaphore = asyncio.Semaphore(MAX_API_REQUESTS_CHAT)
         self.conversations = {}
         self.chat_uuids = {}
         self.last_bot_messages = {}
@@ -138,7 +139,7 @@ class ChatCog(commands.Cog):
                 FROM history
                 WHERE user_id = ?
                 ORDER BY timestamp DESC
-                LIMIT 18
+                LIMIT 20
             ''', (user_id,))
             recent_messages = [{'role': role, 'content': content} for role, content in await self.c.fetchall()]
             logger.info("Finished DB operation")
@@ -149,7 +150,7 @@ class ChatCog(commands.Cog):
                 self.initial_message = json.load(f)['messages'][0]
 
             if user_id not in self.conversations:
-                self.conversations[user_id] = deque(maxlen=18)
+                self.conversations[user_id] = deque(maxlen=CONVO_LENGTH)
                 self.conversations[user_id].append(self.initial_message)
 
             self.conversations[user_id].extend(reversed(recent_messages))
@@ -210,8 +211,10 @@ class ChatCog(commands.Cog):
                         response = await asyncio.to_thread(
                             openai.ChatCompletion.create,
                             model=self.models[user_id],
-                            messages=[self.initial_message] + list(self.conversations[user_id])
-                        )
+                            messages=[self.initial_message] + list(self.conversations[user_id]),
+                            temperature=PERSONALITY,  # included temperature
+                            max_tokens=BOT_TOKENS    # included max tokens
+                            )
                     logger.info("Finished OpenAI call")
                     break
                 except openai.OpenAIError as e:

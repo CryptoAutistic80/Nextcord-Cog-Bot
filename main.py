@@ -28,6 +28,7 @@ import nextcord                   # Module for creating Discord bots
 from nextcord.ext import commands  # Specific class from the nextcord module
 import time                       # Module for time-related functions
 
+
 # Set an environment variable to enable debugging of asyncio
 os.environ['PYTHONASYNCIODEBUG'] = '1'
 
@@ -52,7 +53,7 @@ openai.api_key = os.getenv('Key_OpenAI')
 class Worker:
     def __init__(self, bot, max_tasks: int):
         self.bot = bot
-        self.semaphore = asyncio.Semaphore(max_tasks)  # Limit the number of tasks that can be executed simultaneously
+        self.semaphore = asyncio.Semaphore(20)  # Limit the number of tasks that can be executed simultaneously
         self.loop = asyncio.get_event_loop()            # Get the event loop for the current thread
 
     async def task(self):
@@ -84,7 +85,7 @@ def load():
 async def main():
     try:
         load()                                 # Load bot commands and extensions
-        worker = Worker(bot, 10)                # Create an instance of the 'Worker' class with max_tasks set to 5
+        worker = Worker(bot, 20)               # Create an instance of the 'Worker' class
         await worker.task()                    # Execute the bot's task asynchronously
     finally:
         if 'chat_cog' in bot.__dict__:
@@ -108,7 +109,7 @@ def manage_threads():
         known_threads.update(new_threads)  # Update the known_threads set with the new threads
 
         print(f"Currently active threads: {active_count()}")  # Print the number of active threads
-        time.sleep(10)  # Wait for 10 seconds before checking again
+        time.sleep(480)  # Wait for 10 seconds before checking again
 
 Thread(target=manage_threads, name="Thread Management").start()  # Start a thread to manage other threads
 
