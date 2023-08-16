@@ -11,6 +11,7 @@ import openai
 import numpy as np
 import asyncio
 import nextcord
+import urllib.parse
 from urllib.parse import urljoin
 from nextcord.ext import commands
 from bs4 import BeautifulSoup
@@ -21,12 +22,14 @@ from collections import Counter
 from sklearn.feature_extraction.text import TfidfVectorizer
 
 PINECONE_KEY = os.getenv("PINECONE_KEY")
+scraped_urls = set()
 
 class Administrator(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         nltk.download('punkt')  # download the punkt tokenizer
         self.nlp = spacy.load('en_core_web_sm')  # initialize the nlp object here
+        
 
     @commands.Cog.listener()
     async def on_ready(self):
@@ -228,48 +231,74 @@ class Administrator(commands.Cog):
         if not interaction.user.guild_permissions.administrator:
             await interaction.response.send_message("Only an admin can use this command.", ephemeral=True)
             return
-
+    
         # Defer the interaction response to indicate that the bot is working on the request
         await interaction.response.defer()
-
+    
+        # Define the output file
+        output_file = "scraped_content.txt"
+    
         # Scrape the entered URL
-        await self.scrape_url(url)
-
+        await self.scrape_url(url, output_file)
+    
         # Send a follow-up message to the channel
-        await interaction.followup.send("The URL has been scraped successfully.")
-
-    async def scrape_url(self, url, scraped_urls=None):
-        if scraped_urls is None:
-            scraped_urls = set()
-
+        await interaction.followup.send("The URLs have been scraped successfully and saved in a file.")
+    
+    async def scrape_url(self, url, output_file, indentation_level=0):
+        # Normalize the URL to its absolute form
+        url = urllib.parse.urljoin(url, urllib.parse.urlparse(url).path)
+        
+        # Ignore URL parameters
+        url = urllib.parse.urlparse(url)._replace(query=None).geturl()
+        
         # Check if the URL has already been scraped
         if url in scraped_urls:
             return
-
+    
         scraped_urls.add(url)
-
+    
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(url) as response:
+                    # Check the HTTP status code of the response
+                    if response.status != 200:
+                        print(f"Error scraping {url}: HTTP status code {response.status}")
+                        return
                     html = await response.text()
         except Exception as e:
             print(f"Error scraping {url}: {e}")
             return
-
+    
         soup = BeautifulSoup(html, 'html.parser')
-
+    
         # Extract all URLs from the page
-        urls = [urljoin(url, a['href']) for a in soup.find_all('a', href=True)]
-
-        # Save the text of the page to a .txt file
-        text = soup.get_text()
-        filename = re.sub(r'\W+', '_', url) + '.txt'
-        with open(filename, 'w') as f:
-            f.write(text)
-
-        # Scrape each URL
+        all_urls = [urljoin(url, a['href']) for a in soup.find_all('a', href=True)]
+    
+        # Only keep URLs that belong to the same domain as the parent URL
+        urls = [u for u in all_urls if urllib.parse.urlparse(u).netloc == urllib.parse.urlparse(url).netloc]
+    
+        # Remove unnecessary tags from the soup
+        for tag in soup(['script', 'style']):
+            tag.decompose()
+    
+        # Get the informative text from the soup
+        text = soup.get_text(separator='\n')
+    
+        # Remove excessive white spaces and newlines
+        text = re.sub(r'\s+', ' ', text)
+    
+        # Add indentation based on the level
+        indentation = "  " * indentation_level
+        indented_text = f"{indentation}{text.strip()}"
+    
+        # Save the filtered text of the page to the output file
+        with open(output_file, 'a') as f:
+            f.write(indented_text)
+            f.write("\n\n")
+    
+        # Scrape each internal URL
         for url in urls:
-            await self.scrape_url(url, scraped_urls)
+            await self.scrape_url(url, output_file, indentation_level + 1)
 
 # Function to set up the 'Administrator' cog
 def setup(bot):

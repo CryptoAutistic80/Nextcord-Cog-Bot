@@ -109,7 +109,7 @@ def manage_threads():
         known_threads.update(new_threads)  # Update the known_threads set with the new threads
 
         print(f"Currently active threads: {active_count()}")  # Print the number of active threads
-        time.sleep(480)  # Wait for 10 seconds before checking again
+        time.sleep(480)  # Wait for 480 seconds before checking again
 
 Thread(target=manage_threads, name="Thread Management").start()  # Start a thread to manage other threads
 
